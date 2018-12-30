@@ -9,7 +9,7 @@ from __future__ import absolute_import
 ### sys.stdout = io.TextIOWrapper(sys.stdout.buffer,encoding='utf8')
 ### from __future__ import unicode_literals
 
-_version = "1.7.1"
+_version = "0.2.2"
 _author = "mabotech"
 
 import time
@@ -77,7 +77,7 @@ class OracleService:
         return sp_params, sp_params_names
 
     def _prep_result(self, result, params: list, sp_params_names: list,
-                     rtype: str):
+                     is_dict: bool):
         """
         """
         i = 0
@@ -85,7 +85,7 @@ class OracleService:
         data_d = {}
 
         for item in params:
-            if rtype == "dict":  ## return dict
+            if is_dict is True:  ## return dict
                 name = sp_params_names[i]
                 if item == "<CURSOR>":
                     v = self.ora.get_ref_rows(result[i])
@@ -119,7 +119,7 @@ class OracleService:
             raise Exception(repr(ex))
 
     @rpc
-    def call_proc(self, sp_name: str, params: list, rtype="dict"):
+    def call_proc(self, sp_name: str, params: list, is_dict=True):
         """
         sp_name: stored procudure
         params: in, out(number, string, datetime, timestamp, cursor...)
@@ -145,9 +145,9 @@ class OracleService:
             result = self.ora.callproc(sp_name, sp_params)
 
             data, data_d = self._prep_result(result, params, sp_params_names,
-                                             rtype)
+                                             is_dict)
 
-            if rtype == "dict":
+            if is_dict is True:
                 return data_d
             else:
                 return data
