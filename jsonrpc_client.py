@@ -4,9 +4,11 @@ test jsonrpc
 """
 
 import json
-### import ujson as json
 
 import requests
+
+### import ujson as json
+
 
 
 def main():

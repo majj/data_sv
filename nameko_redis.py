@@ -3,8 +3,8 @@
 """
 nameko redis
 """
-from logging import getLogger
 import traceback
+from logging import getLogger
 
 from nameko.extensions import DependencyProvider
 

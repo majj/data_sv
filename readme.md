@@ -1,6 +1,8 @@
 
 
-# Windows
+Nameko Services
+
+## Windows
 
 install Python 3.7
 
@@ -9,7 +11,7 @@ install RabbitMQ
 install Redis
 
 
-## Run mabo_sv
+### Run mabo_sv
 
 > pip_install.cmd
 
@@ -20,11 +22,14 @@ install Redis
 > python jsonrpc_client.py
 
 
-## Run data_sv
+### Run data_sv
 
 > start_data_sv.cmd
 
 
-## Oracle Client
+### Oracle Service
 
 > start_ora_sv.cmd
+
+## Linux
+

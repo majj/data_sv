@@ -38,7 +38,7 @@ class MaboService:
     conf = Config()
 
     db = RpcProxy("oracle_service")
-
+    
     ### redis = RpcProxy("redis_service")
     redis = Redis("development")
 
