@@ -5,31 +5,27 @@ mabo services(web api)
 """
 from __future__ import absolute_import
 
+import json
+import time
+import traceback
+from logging import getLogger
+
+from nameko.constants import DEFAULT_HEARTBEAT
+from nameko.dependency_providers import Config
+from nameko.rpc import RpcProxy, rpc
+from nameko.timer import timer
+from nameko.web.handlers import http
+from nameko_redis import Redis
+from werkzeug.wrappers import Response
+
+import constants
+from lib.utils import parse_ip
+
 _version = "0.2"
 _author = "mabotech"
 
-import json
 ### import ujson as json
-
-from logging import getLogger
-import time
-
-import traceback
-
 ### import requests
-
-from werkzeug.wrappers import Response
-
-from nameko.dependency_providers import Config
-from nameko.rpc import rpc, RpcProxy
-from nameko.timer import timer
-from nameko.web.handlers import http
-from nameko.constants import DEFAULT_HEARTBEAT
-
-from nameko_redis import Redis
-
-from lib.utils import parse_ip
-import constants
 
 log = getLogger("mabo_sv")
 
@@ -50,7 +46,7 @@ class MaboService:
     def heartbeat(self):
         """set heartbeat time to redis[key: heartbeat] """
         now = time.strftime("%Y-%m-%d %H:%M:%S")
-        timestamp = 1000 * time.time()
+        ## timestamp = 1000 * time.time()
         log.debug("heartbeat: {}".format(now))
         try:
             self.redis.set("heartbeat", now)
@@ -80,6 +76,10 @@ class MaboService:
         name = request.args.get("name")
         result = self.redis.register2(name)
 
+    @http("GET","/lua/get_src")
+    def get_lua_src(self, request):
+        pass
+
     #################################################################
     ## 数据库
     #################################################################
@@ -91,7 +91,7 @@ class MaboService:
 
         IP = request.args.get("IP", request.remote_addr)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         data = self.db.call_proc("sp_test", ["string"], "array")
 
@@ -113,7 +113,7 @@ class MaboService:
         """
         IP: str = request.args.get("IP", request.remote_addr)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         json_text: str = request.get_data(as_text=True)
 
@@ -152,11 +152,11 @@ class MaboService:
 
         elif mtype == "ht":
             """http"""
-            data = [mt]
+            data = [mtype]
 
         elif mtype == "pg":
             """postgresql"""
-            data = [mt]
+            data = [mtype]
 
         elif mtype == "py":
             """python"""
@@ -202,7 +202,7 @@ class MaboService:
         """
         IP = request.args.get("IP", request.remote_addr)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         db = request.args.get("db")
         q = request.args.get("q")

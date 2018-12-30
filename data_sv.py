@@ -1,34 +1,30 @@
 # -*-coding:utf-8 -*
 """
-data services(web api) for ACEC
-
+data services(web api) for Prject
 """
 from __future__ import absolute_import
+
+import json
+import time
+import traceback
+from logging import getLogger
+
+import requests
+from nameko.constants import DEFAULT_HEARTBEAT
+from nameko.dependency_providers import Config
+from nameko.rpc import RpcProxy, rpc
+from nameko.timer import timer
+from nameko.web.handlers import http
+from nameko_redis import Redis
+from werkzeug.wrappers import Response
+
+import constants
+from lib.utils import parse_ip
 
 _version = "0.2"
 _author = "mabotech"
 
-import logging
-import traceback
-import requests
-
-import json
-import time
-
-from werkzeug.wrappers import Response
-
-from nameko.dependency_providers import Config
-from nameko.rpc import rpc, RpcProxy
-from nameko.timer import timer
-from nameko.web.handlers import http
-from nameko.constants import DEFAULT_HEARTBEAT
-
-from nameko_redis import Redis
-
-from lib.utils import parse_ip
-import constants
-
-log = logging.getLogger("data_sv")
+log = getLogger("data_sv")
 
 
 class HttpService:
@@ -47,7 +43,7 @@ class HttpService:
     def heartbeat(self):
         """set heartbeat time to redis[key: heartbeat] """
         now = time.strftime("%Y-%m-%d %H:%M:%S")
-        timestamp = 1000 * time.time()
+        ## timestamp = 1000 * time.time()
         log.debug("heartbeat: {}".format(now))
         try:
             self.redis.set("heartbeat", now)
@@ -55,37 +51,16 @@ class HttpService:
             log.error(ex)
 
     #################################################################
-    ## Redis Lua
-    #################################################################
-    @http("POST", "/lua/register")
-    def post_lua_register(self, request):
-        """register lua in redis """
-        json_text = request.get_data(as_text=True)
-        data = json.loads(json_text)
-        # log.debug(data)
-        for key, lua_script in data.items():
-
-            result = self.redis.register(key, lua_script)
-            # log.debug(result)
-        return json.dumps(self.redis.get_sha())
-
-    @http("GET", "/lua/register2")
-    def get_lua_register2(self, request):
-        """register lua from redis lua_src by name """
-        name = request.args.get("name")
-        result = self.redis.register2(name)
-
-    #################################################################
     ## 用户
     #################################################################
     @http("GET,POST", "/api/autologin")
-    def auto_login(self, cookies):
+    def auto_login(self, request):
         """"""
         callback = request.args.get("callback", None)
         try:
             redirect_to = ""
-            if "redirect_to" in cookies:
-                redirect_to = cookies["redirect_to"]
+            if "redirect_to" in request:
+                redirect_to = request["redirect_to"]
                 res = {"is_login": 1, "redirect_to": redirect_to}
                 return "{}({})".format(callback, res)
         except Exception as e:
@@ -100,7 +75,7 @@ class HttpService:
         IP = request.args.get("IP", request.remote_addr)
         callback = request.args.get("callback", None)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         result = self.db.call_proc(
             "sp_ws_emp",
@@ -143,7 +118,7 @@ class HttpService:
 
         IP = request.args.get("IP", request.remote_addr)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         ### group = "ws:{}".format(wskey)
 
@@ -162,7 +137,7 @@ class HttpService:
 
         IP = request.args.get("IP", request.remote_addr)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         ic = request.args.get("ic", 1)
         id_ = request.args.get("id", 1)
@@ -194,7 +169,7 @@ class HttpService:
 
         IP = request.args.get("IP", request.remote_addr)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         result = self.redis.call_lua(
             method="lua_user_add", keys=[group], args=[ic, userid, timestamp])
@@ -211,7 +186,7 @@ class HttpService:
 
         IP = request.args.get("IP", request.remote_addr)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         ### q =self.conf.get("ORACLE")["QUERY"]
 
@@ -232,7 +207,7 @@ class HttpService:
 
         IP = request.args.get("IP", request.remote_addr)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         part = self.redis.hget(group, "part")
         changed = self.redis.hget(group, "changed")
@@ -249,7 +224,7 @@ class HttpService:
         """
         IP = request.args.get("IP", request.remote_addr)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         part = request.args.get("part")
         next = request.args.get("next")
@@ -273,7 +248,7 @@ class HttpService:
         """
         IP = request.args.get("IP", request.remote_addr)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
         frame = frame.lower()
         id_ = request.args.get("id", 1)
         seq = request.args.get("seq", 1)
@@ -337,7 +312,7 @@ class HttpService:
         """
         IP = request.args.get("IP", request.remote_addr)
         seq = request.args.get("seq", 1)
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         callback = request.args.get("callback", None)
 
@@ -362,7 +337,7 @@ class HttpService:
 
         IP = request.args.get("IP", request.remote_addr)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         ws = request.args.get("ws", "no_ws")
         path_wi = request.args.get("path_wi", "")
@@ -375,7 +350,7 @@ class HttpService:
 
         callback = request.args.get("callback", None)
 
-        now = time.strftime("%Y-%m-%d %H:%M:%S")
+        ## now = time.strftime("%Y-%m-%d %H:%M:%S")
 
         result = self.redis.call_lua(
             method="lua_order_set",
@@ -408,7 +383,7 @@ class HttpService:
 
         IP = request.args.get("IP", request.remote_addr)
 
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         try:
 
@@ -416,7 +391,7 @@ class HttpService:
 
             callback = request.args.get("callback", None)
 
-            now = time.strftime("%Y-%m-%d %H:%M:%S")
+            ## now = time.strftime("%Y-%m-%d %H:%M:%S")
 
             result = self.redis.call_lua(
                 method="lua_order_get", keys=[group], args=[id_, timestamp])
@@ -440,7 +415,7 @@ class HttpService:
 
         IP = request.args.get("IP", request.remote_addr)
         id_ = request.args.get("id", 1)
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         log.debug("{}:{}".format(addr, ip))
 
@@ -489,7 +464,7 @@ class HttpService:
         IP = request.args.get("IP", request.remote_addr)
         id_ = request.args.get("id", 1)
         callback = request.args.get("JSONCALLBACK", "ng_jsonp_callback")
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         ip_4 = 10 * (int(addr[3]) // 10) + 7
 
@@ -518,7 +493,7 @@ class HttpService:
         IP = request.args.get("IP", request.remote_addr)
         id_ = request.args.get("id", 1)
         # callback = request.args.get("JSONCALLBACK", "ng_jsonp_callback")
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         result = self.redis.call_lua(
             method="lua_andon_get", keys=[group], args=[id_, timestamp])
@@ -538,8 +513,8 @@ class HttpService:
     def set_measure(self, request):
         """"""
         IP = request.args.get("IP", request.remote_addr)
-        # val = request.args.get("val", None)
-        type, wskey, addr, ip, group, timestamp = parse_ip(IP)
+        val = request.args.get("val", None)
+        type_, wskey, addr, ip_, group, timestamp = parse_ip(IP)
 
         ### print(json.loads(request.get_data(as_text=True)))
         ### return u"received: {}".format(request.get_data(as_text=True))
